@@ -369,3 +369,373 @@
                 let section = document.createElement('div'); section.className = 'shop-section';
                 section.innerHTML = `<h3>${cat.title}</h3>`;
                 let itemsGrid = document.createElement('div'); itemsGrid.className = 'shop-items';
+                customizationItems[cat.type].forEach(item => {
+                    let isUnlocked = playerData.unlocked[cat.type].includes(item.id);
+                    let isEquipped = playerData.equipped[cat.type] === item.id;
+                    let btn = document.createElement('button'); btn.className = 'shop-item-btn';
+                    if (isEquipped) btn.className += ' equipped'; else if (isUnlocked) btn.className += ' unlocked';
+                    let label = isEquipped ? "Надето" : (isUnlocked ? "Надеть" : "Купить");
+                    let priceTag = (item.id === 0 || isUnlocked) ? "" : `<span class="price">250 💎</span>`;
+                    btn.innerHTML = `<div>${item.name}</div><div style="font-size:9px; color:#aaa;">${label}</div>${priceTag}`;
+                    btn.onclick = () => handleShopAction(cat.type, item.id);
+                    itemsGrid.appendChild(btn);
+                });
+                section.appendChild(itemsGrid); container.appendChild(section);
+            });
+        }
+        function handleShopAction(type, id) {
+            let isUnlocked = playerData.unlocked[type].includes(id);
+            if (isUnlocked) { playerData.equipped[type] = id; playClick(); saveProfile(); renderShop(); }
+            else {
+                if (playerData.gems >= 250) {
+                    playerData.gems -= 250; playerData.unlocked[type].push(id); playerData.equipped[type] = id;
+                    playKeySound(); saveProfile(); renderShop();
+                } else { playLockedSound(); alert("Недостаточно алмазов!"); }
+            }
+        }
+
+        // --- ЗВУКИ ---
+        let audioCtx = null;
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        function playClick() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(600, audioCtx.currentTime); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+        function playStepSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'triangle'; osc.frequency.setValueAtTime(120, audioCtx.currentTime); g.gain.setValueAtTime(0.08, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); osc.start(); osc.stop(audioCtx.currentTime + 0.05); }
+        function playTickSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(800, audioCtx.currentTime); g.gain.setValueAtTime(0.05, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.05); }
+        function playKeySound() { initAudio(); let now = audioCtx.currentTime, notes = [440, 554, 659, 880]; notes.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(f, now + i*0.05); g.gain.setValueAtTime(0.1, now + i*0.05); g.gain.linearRampToValueAtTime(0.01, now + i*0.05 + 0.2); osc.start(now + i*0.05); osc.stop(now + i*0.05 + 0.2); }); }
+        function playLockedSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); g.gain.setValueAtTime(0.2, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+        function playWinSound() { initAudio(); let now = audioCtx.currentTime, m = [523, 659, 783, 1046], d = [0.1, 0.1, 0.1, 0.3], ts=0; m.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(f, now+ts); g.gain.setValueAtTime(0.1, now+ts); osc.start(now+ts); osc.stop(now+ts+d[i]); ts+=d[i]; }); }
+        function playGameOverSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime+0.4); g.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime+0.4); }
+
+        // --- ИНТЕРФЕЙС ЭКРАНОВ ---
+        function switchScreen(screenId) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(screenId).classList.add('active'); if (screenId === 'screenShop') renderShop(); updateProfileUI(); }
+        function enableCheckBtn(id) { setTimeout(() => { document.getElementById(`qcheck${id}`).removeAttribute('disabled'); }, 1000); }
+        function showRewardModal(code, title = "Успех!", text = "Твой промокод:") { document.getElementById('modalTitle').innerText = title; document.getElementById('modalText').innerText = text; document.getElementById('codeBox').innerText = code; document.getElementById('rewardModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('rewardModal').style.display = 'none'; if (currentLevel > 50) switchScreen('screenMenu'); }
+
+        // --- ГЕНЕРАТОР КАРТЫ НА 50 УРОВНЕЙ ---
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('gameStatus'); const levelIndicator = document.getElementById('levelIndicator');
+        const keyIndicator = document.getElementById('keyIndicator'); const timerIndicator = document.getElementById('timerIndicator');
+        const gameLivesText = document.getElementById('gameLives'); const tunnelDiv = document.getElementById('tunnelVision');
+
+        let currentLevel = 1; let map, player, hasKey, gameOver, tileSize, gridSize;
+        let timeLeft = 0; let timerInterval = null; let loopInterval = null;
+        let npcs = []; let isTunnelLevel = false;
+
+        function generateProceduralLevel(lvlId) {
+            // Размер сетки растет с уровнем от 9x9 до 19x19
+            gridSize = 9 + Math.floor(lvlId / 5);
+            if (gridSize % 2 === 0) gridSize++; // Обязательно нечетное для генератора лабиринтов
+            
+            let timeLimit = 30 + (lvlId * 2);
+            
+            // Заполнение стены
+            let grid = [];
+            for (let r = 0; r < gridSize; r++) {
+                grid[r] = new Array(gridSize).fill(1);
+            }
+
+            // Алгоритм генерации проходов (Backtracking)
+            let cells = [];
+            function carve(cx, cy) {
+                grid[cy][cx] = 0;
+                let dirs = [[0,-2],[0,2],[-2,0],[2,0]].sort(() => Math.random() - 0.5);
+                for(let i=0; i<dirs.length; i++) {
+                    let nx = cx + dirs[i][0], ny = cy + dirs[i][1];
+                    if (nx > 0 && nx < gridSize-1 && ny > 0 && ny < gridSize-1 && grid[ny][nx] === 1) {
+                        grid[cy + dirs[i][1]/2][cx + dirs[i][0]/2] = 0;
+                        carve(nx, ny);
+                    }
+                }
+            }
+            carve(1, 1);
+
+            // Размещаем Ключ и Дверь
+            grid[1][1] = 0; // Игрок всегда стартует здесь
+            grid[gridSize-2][gridSize-2] = 'D'; // Дверь в конце
+            
+            // Ключ ищем в случайной пустой клетке подальше
+            let placedK = false;
+            while(!placedK) {
+                let kx = Math.floor(Math.random() * (gridSize-2)) + 1;
+                let ky = Math.floor(Math.random() * (gridSize-2)) + 1;
+                if (grid[ky][kx] === 0 && (kx > 3 || ky > 3)) {
+                    grid[ky][kx] = 'K';
+                    placedK = true;
+                }
+            }
+
+            return { gridSize, timeLimit, playerStart: { x: 1, y: 1 }, map: grid };
+        }
+
+        // --- ИНИЦИАЛИЗАЦИЯ ИГРЫ ---
+        function startNewGame() {
+            if (playerData.lives <= 0) return;
+            if (playerData.currentSavedLevel > 1) {
+                if (!confirm("Начать заново? Прогресс уровней сбросится!")) return;
+            }
+            playerData.currentSavedLevel = 1; saveProfile(); currentLevel = 1;
+            resumeGame();
+        }
+
+        function resumeGame() {
+            if (playerData.lives <= 0) { alert("У вас нет жизней! Дождитесь восстановления."); return; }
+            currentLevel = playerData.currentSavedLevel || 1; switchScreen('screenGame');
+            loadLevel(currentLevel);
+        }
+
+        function loadLevel(lvlId) {
+            clearInterval(timerInterval); clearInterval(loopInterval);
+            
+            let lvlData = generateProceduralLevel(lvlId);
+            gridSize = lvlData.gridSize;
+            map = lvlData.map;
+            player = { ...lvlData.playerStart };
+            hasKey = false; gameOver = false; tileSize = 360 / gridSize;
+            timeLeft = lvlData.timeLimit;
+
+            // Проверяем, является ли уровень Туннелем (кратный 5)
+            isTunnelLevel = (lvlId % 5 === 0);
+            if (isTunnelLevel) {
+                tunnelDiv.style.display = "block";
+                updateTunnelOverlay();
+                statusText.innerText = "⚠️ ВЫ В ТЕМНОМ ТУННЕЛЕ! Обзор сужен.";
+                statusText.style.color = "var(--gem-color)";
+            } else {
+                tunnelDiv.style.display = "none";
+                statusText.innerText = "Найди КЛЮЧ (🔑) и берегись охранников (👮)!";
+                statusText.style.color = "white";
+            }
+
+            levelIndicator.innerText = `Ур: ${lvlId}/50`;
+            gameLivesText.innerText = `❤️ ${playerData.lives}`;
+            timerIndicator.innerText = `⏱ ${timeLeft}с`; timerIndicator.style.color = "white";
+            keyIndicator.innerText = "Ключ: ❌"; keyIndicator.style.color = "var(--danger)";
+
+            // Спавн 5 NPC-Охранников
+            npcs = [];
+            let spawnCount = 0;
+            while(spawnCount < 5) {
+                let nx = Math.floor(Math.random() * (gridSize-2)) + 1;
+                let ny = Math.floor(Math.random() * (gridSize-2)) + 1;
+                // Спавним на свободных клетках подальше от старта игрока
+                if (map[ny][nx] === 0 && (nx > 3 || ny > 3)) {
+                    npcs.push({
+                        x: nx, y: ny,
+                        dx: Math.random() > 0.5 ? 1 : -1,
+                        dy: 0,
+                        dirTimer: 0,
+                        flashAngle: Math.random() * Math.PI * 2 // Куда направлен фонарик
+                    });
+                    spawnCount++;
+                }
+            }
+
+            // Таймер игры
+            timerInterval = setInterval(() => {
+                if (gameOver) return;
+                timeLeft--; timerIndicator.innerText = `⏱ ${timeLeft}с`;
+                if (timeLeft <= 10 && timeLeft > 0) { timerIndicator.style.color = "var(--danger)"; playTickSound(); }
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval); gameOver = true; playGameOverSound();
+                    statusText.innerText = "ВРЕМЯ ИСТЕКЛО!"; statusText.style.color = "var(--danger)";
+                    handlePlayerHit();
+                }
+            }, 1000);
+
+            // Игровой цикл для плавной отрисовки и движения NPC
+            loopInterval = setInterval(updateGameLoop, 150);
+        }
+
+        // --- ИГРОВОЙ ЦИКЛ (ДВИЖЕНИЕ NPC И ПРОВЕРКА КОЛЛИЗИЙ) ---
+        function updateGameLoop() {
+            if (gameOver) return;
+            
+            // Движение NPC Охранников
+            npcs.forEach(npc => {
+                npc.dirTimer++;
+                // Каждые несколько шагов или при ударе об стену меняем случайное направление
+                let nextX = npc.x + npc.dx;
+                let nextY = npc.y + npc.dy;
+
+                if (npc.dirTimer > 8 || map[nextY][nextX] === 1) {
+                    npc.dirTimer = 0;
+                    let possibleDirs = [[0,-1],[0,1],[-1,0],[1,0]];
+                    let validDirs = possibleDirs.filter(d => map[npc.y + d[1]][npc.x + d[0]] !== 1);
+                    if (validDirs.length > 0) {
+                        let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+                        npc.dx = chosen[0]; npc.dy = chosen[1];
+                        // Плавное вращение луча фонарика
+                        npc.flashAngle = Math.atan2(npc.dy, npc.dx);
+                    }
+                } else {
+                    npc.x = nextX; npc.y = nextY;
+                }
+
+                // Проверка на столкновение охранника с игроком
+                if (npc.x === player.x && npc.y === player.y) {
+                    handlePlayerHit();
+                }
+            });
+
+            drawMap();
+        }
+
+        function handlePlayerHit() {
+            gameOver = true;
+            clearInterval(timerInterval); clearInterval(loopInterval);
+            
+            playerData.lives--;
+            if (!playerData.lastLifeLossTime) playerData.lastLifeLossTime = Date.now();
+            saveProfile();
+            
+            playGameOverSound();
+            statusText.innerText = "ОХРАННИК ПОЙМАЛ ВАС! Минус 1 жизнь.";
+            statusText.style.color = "var(--danger)";
+            
+            setTimeout(() => {
+                if (playerData.lives > 0) {
+                    loadLevel(currentLevel);
+                } else {
+                    exitToMenu();
+                    alert("У вас закончились жизни! 1 жизнь восстанавливается 3 минуты.");
+                }
+            }, 2000);
+        }
+
+        function updateTunnelOverlay() {
+            if (!isTunnelLevel) return;
+            // Центрируем темную виньетку на координатах игрока на экране
+            let screenX = (player.x * tileSize) + (tileSize / 2);
+            let screenY = (player.y * tileSize) + (tileSize / 2);
+            tunnelDiv.style.background = `radial-gradient(circle 50px at ${screenX}px ${screenY}px, transparent 20%, rgba(0,0,0,0.97) 70%)`;
+        }
+
+        // --- СЕТКА ОТРИСОВКИ ---
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    let tile = map[r][c]; let x = c * tileSize; let y = r * tileSize;
+                    if (tile === 1) {
+                        ctx.fillStyle = isTunnelLevel ? '#0f1318' : '#1f2833'; 
+                        ctx.fillRect(x, y, tileSize, tileSize);
+                    } else if (tile === 'K') {
+                        ctx.font = `${tileSize * 0.6}px Arial`; ctx.fillText("🔑", x + tileSize*0.1, y + tileSize*0.75);
+                    } else if (tile === 'D') {
+                        ctx.font = `${tileSize * 0.6}px Arial`; ctx.fillText("🚪", x + tileSize*0.1, y + tileSize*0.75);
+                    }
+                }
+            }
+
+            // Отрисовка NPC Охранников и лучей их фонариков
+            npcs.forEach(npc => {
+                let nX = npc.x * tileSize + tileSize/2;
+                let nY = npc.y * tileSize + tileSize/2;
+
+                // Луч фонарика конусом
+                ctx.save();
+                let gradient = ctx.createRadialGradient(nX, nY, 2, nX, nY, tileSize * 2);
+                gradient.addColorStop(0, 'rgba(241, 196, 15, 0.4)');
+                gradient.addColorStop(1, 'rgba(241, 196, 15, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.moveTo(nX, nY);
+                ctx.arc(nX, nY, tileSize * 2.2, npc.flashAngle - 0.4, npc.flashAngle + 0.4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                // Иконка охранника👮
+                ctx.font = `${tileSize * 0.6}px Arial`; 
+                ctx.fillText("👮", npc.x * tileSize + tileSize*0.1, npc.y * tileSize + tileSize*0.75);
+            });
+
+            drawPlayer(player.x * tileSize, player.y * tileSize, tileSize);
+        }
+
+        function drawPlayer(x, y, size) { ctx.save(); ctx.translate(x, y); renderCharacter(ctx, playerData.gender, size); ctx.restore(); }
+        
+        function renderCharacter(targetCtx, gender, size, forcedCustom = null) {
+            targetCtx.clearRect(0,0,size,size);
+            let pX = size * 0.15, pY = size * 0.15, pSize = size * 0.7;
+            let cH = forcedCustom ? forcedCustom.hat : playerData.equipped.hat;
+            let cG = forcedCustom ? forcedCustom.glasses : playerData.equipped.glasses;
+            let cS = forcedCustom ? forcedCustom.shirt : playerData.equipped.shirt;
+
+            let shirtColor = (gender === 'male') ? "#2980b9" : "#9b59b6";
+            if (cS > 0) shirtColor = customizationItems.shirt[cS].color;
+            targetCtx.fillStyle = shirtColor; targetCtx.fillRect(pX + pSize*0.15, pY + pSize*0.5, pSize*0.7, pSize*0.5);
+            
+            targetCtx.fillStyle = (gender === 'male') ? "#f3c192" : "#f7d7b4";
+            targetCtx.fillRect(pX + pSize*0.25, pY + pSize*0.15, pSize*0.5, pSize*0.4);
+
+            targetCtx.fillStyle = "#2c3e50";
+            targetCtx.fillRect(pX + pSize*0.33, pY + pSize*0.32, pSize*0.06, pSize*0.06);
+            targetCtx.fillRect(pX + pSize*0.61, pY + pSize*0.32, pSize*0.06, pSize*0.06);
+
+            // Спец-шапки
+            if (cH > 0) {
+                targetCtx.fillStyle = customizationItems.hat[cH].color;
+                targetCtx.fillRect(pX + pSize*0.2, pY, pSize*0.6, pSize*0.15);
+            }
+            // Спец-очки
+            if (cG > 0 && cG !== 3) {
+                targetCtx.fillStyle = customizationItems.glasses[cG].color;
+                targetCtx.fillRect(pX + pSize*0.22, pY + pSize*0.26, pSize*0.56, pSize*0.1);
+            }
+        }
+
+        function renderMenuPreviews() {
+            renderCharacter(document.getElementById('preMale').getContext('2d'), 'male', 40);
+            renderCharacter(document.getElementById('preFemale').getContext('2d'), 'female', 40);
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameOver) return;
+            let nX = player.x + dx; let nY = player.y + dy;
+            
+            if (nX >= 0 && nX < gridSize && nY >= 0 && nY < gridSize && map[nY][nX] !== 1) {
+                player.x = nX; player.y = nY; playStepSound();
+                if (isTunnelLevel) updateTunnelOverlay();
+
+                if (map[nY][nX] === 'K') {
+                    hasKey = true; map[nY][nX] = 0; playKeySound();
+                    keyIndicator.innerText = "Ключ: ✔"; keyIndicator.style.color = "var(--success)";
+                }
+                
+                if (map[nY][nX] === 'D') {
+                    if (hasKey) {
+                        gameOver = true; clearInterval(timerInterval); clearInterval(loopInterval);
+                        playerData.gems += 30; playerData.xp += 35;
+                        if (playerData.xp >= playerData.level * 100) { playerData.xp = 0; playerData.level++; }
+                        
+                        currentLevel++; playerData.currentSavedLevel = currentLevel; saveProfile();
+                        playWinSound();
+                        
+                        if (currentLevel <= 50) {
+                            showRewardModal(`+30 💎 / +35 XP`, `Уровень ${currentLevel-1} Пройден!`, `Прогресс зафиксирован.`);
+                            document.getElementById('modalBtn').onclick = function() { document.getElementById('rewardModal').style.display = 'none'; loadLevel(currentLevel); };
+                        } else {
+                            playerData.currentSavedLevel = 1; saveProfile();
+                            showRewardModal('GRAND_CHAMP_50', 'ЛЕГЕНДА!', 'Вы прошли все 50 уровней игры!');
+                            document.getElementById('modalBtn').onclick = function() { exitToMenu(); };
+                        }
+                    } else { playLockedSound(); }
+                }
+                drawMap();
+            }
+        }
+
+        function exitToMenu() { clearInterval(timerInterval); clearInterval(loopInterval); switchScreen('screenMenu'); }
+        window.onload = function() { loadProfile(); };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') movePlayer(0, -1);
+            if (e.key === 'ArrowDown' || e.key === 's') movePlayer(0, 1);
+            if (e.key === 'ArrowLeft' || e.key === 'a') movePlayer(-1, 0);
+            if (e.key === 'ArrowRight' || e.key === 'd') movePlayer(1, 0);
+        });
+    </script>
+</body>
+</html>
