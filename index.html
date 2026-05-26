@@ -14,6 +14,7 @@
             --danger: #ff4d4d;
             --xp-color: #9b59b6;
             --gem-color: #00d2d3;
+            --love-color: #ff4d6d;
         }
 
         body {
@@ -30,6 +31,26 @@
             height: 100vh; overflow-y: auto;
         }
         .screen.active { display: flex; }
+
+        /* Стили для начальной заставки */
+        .splash-screen {
+            justify-content: center;
+            text-align: center;
+            background: linear-gradient(135deg, #0b0c10 0%, #1a0b16 100%);
+        }
+        .splash-title {
+            font-size: 28px;
+            color: var(--love-color);
+            text-shadow: 0 0 15px rgba(255, 77, 109, 0.6);
+            margin-bottom: 40px;
+            font-weight: bold;
+            line-height: 1.4;
+            animation: pulse 2s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.98); text-shadow: 0 0 10px rgba(255, 77, 109, 0.5); }
+            100% { transform: scale(1.02); text-shadow: 0 0 25px rgba(255, 77, 109, 0.9); }
+        }
 
         h1 {
             color: var(--accent-neon); text-transform: uppercase; letter-spacing: 2px;
@@ -65,10 +86,12 @@
         .btn-ui:disabled { border-color: #555; color: #555; cursor: not-allowed; opacity: 0.6; }
         .btn-ui:not(:disabled):active { background: var(--accent-neon); color: var(--bg-color); box-shadow: 0 0 15px var(--accent-neon); }
         
+        .btn-love { border-color: var(--love-color); color: var(--love-color); }
+        .btn-love:active { background: var(--love-color) !important; color: #fff !important; box-shadow: 0 0 15px var(--love-color) !important; }
+
         .btn-continue { border-color: var(--success); color: var(--success); }
         .btn-continue:not(:disabled):active { background: var(--success); color: #fff; box-shadow: 0 0 15px var(--success); }
 
-        /* Верхняя панель: сетка изменена под кнопку меню */
         .stats-bar {
             display: grid; grid-template-columns: 50px repeat(3, 1fr);
             width: 100%; margin-bottom: 10px; font-weight: bold; font-size: 11px; text-align: center;
@@ -91,7 +114,6 @@
             transition: background 0.1s ease;
         }
 
-        /* Увеличенные кнопки управления */
         .controls {
             display: grid; grid-template-columns: repeat(3, 75px);
             grid-template-rows: repeat(2, 75px); gap: 12px; margin-top: 15px;
@@ -144,7 +166,14 @@
 </head>
 <body>
 
-    <div class="screen active" id="screenMenu">
+    <!-- ЭКРАН 0: НАЧАЛЬНАЯ ЗАСТАВКА -->
+    <div class="screen splash-screen active" id="screenSplash">
+        <div class="splash-title">Фати, я люблю тебя малыш ❤️</div>
+        <button class="btn-ui btn-love" style="width: 80%;" onclick="playClick(); switchScreen('screenMenu')">Войти в игру</button>
+    </div>
+
+    <!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ -->
+    <div class="screen" id="screenMenu">
         <h1>Лабиринт</h1>
         
         <div class="profile-panel">
@@ -180,6 +209,7 @@
         </div>
     </div>
 
+    <!-- ЭКРАН 2: ИГРОВОЙ ПРОЦЕСС -->
     <div class="screen" id="screenGame">
         <div class="stats-bar">
             <button class="btn-mini-menu" onclick="playClick(); exitToMenu()">⚙️</button>
@@ -203,6 +233,7 @@
         </div>
     </div>
 
+    <!-- ЭКРАН 3: МАГАЗИН И ГАРДЕРОБ -->
     <div class="screen" id="screenShop">
         <h1>Гардероб и Магазин</h1>
         <div class="profile-panel" style="margin-bottom: 10px;">
@@ -221,6 +252,7 @@
         <button class="btn-ui" style="width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
+    <!-- ЭКРАН 4: КВЕСТЫ -->
     <div class="screen" id="screenQuests">
         <h1>Квесты</h1>
         <div class="quest-list">
@@ -237,6 +269,7 @@
         <button class="btn-ui" style="margin-top: 30px; width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО НАГРАДЫ -->
     <div class="modal" id="rewardModal">
         <div class="modal-content">
             <h2 id="modalTitle" style="color: var(--success); margin: 0;">Успех!</h2>
@@ -247,7 +280,6 @@
     </div>
 
     <script>
-        // --- ПРОФИЛЬ И СОХРАНЕНИЯ ---
         let playerData = {
             gender: 'male', gems: 0, level: 1, xp: 0,
             currentSavedLevel: 1,
@@ -382,7 +414,6 @@
         function addGems(amount) { playerData.gems += amount; saveProfile(); }
         function setGender(g) { playerData.gender = g; playClick(); saveProfile(); }
 
-        // --- МАГАЗИН И ПОКУПКА ЖИЗНЕЙ ---
         function renderShop() {
             const container = document.getElementById('shopContainer'); container.innerHTML = "";
             
@@ -456,7 +487,6 @@
             }
         }
 
-        // --- ЗВУКИ ---
         let audioCtx = null;
         function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
         function playClick() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(600, audioCtx.currentTime); g.gain.setValueAtTime(0.1, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
@@ -467,13 +497,11 @@
         function playWinSound() { initAudio(); let now = audioCtx.currentTime, m = [523, 659, 783, 1046], d = [0.1, 0.1, 0.1, 0.3], ts=0; m.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(f, now+ts); g.gain.setValueAtTime(0.1, now+ts); osc.start(now+ts); osc.stop(now+ts+d[i]); ts+=d[i]; }); }
         function playGameOverSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime+0.4); g.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime+0.4); }
 
-        // --- ЭКРАНЫ ---
         function switchScreen(screenId) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(screenId).classList.add('active'); if (screenId === 'screenShop') renderShop(); updateProfileUI(); }
         function enableCheckBtn(id) { setTimeout(() => { document.getElementById(`qcheck${id}`).removeAttribute('disabled'); }, 1000); }
         function showRewardModal(code, title = "Успех!", text = "Твой промокод:") { document.getElementById('modalTitle').innerText = title; document.getElementById('modalText').innerText = text; document.getElementById('codeBox').innerText = code; document.getElementById('rewardModal').style.display = 'flex'; }
         function closeModal() { document.getElementById('rewardModal').style.display = 'none'; if (currentLevel > 50) switchScreen('screenMenu'); }
 
-        // --- ДВИЖОК ИГРЫ И ГЕНЕРАТОР ---
         const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
         const statusText = document.getElementById('gameStatus'); const levelIndicator = document.getElementById('levelIndicator');
         const keyIndicator = document.getElementById('keyIndicator'); const timerIndicator = document.getElementById('timerIndicator');
@@ -740,7 +768,7 @@
 
             let shirtColor = (gender === 'male') ? "#2980b9" : "#9b59b6";
             if (cS > 0) shirtColor = customizationItems.shirt[cS].color;
-            targetCtx.fillStyle = shirtColor; targetCtx.fillRect(pX + pSize*0.15, pY + pSize*0.5, pSize*0.7, pSize*0.5);
+            targetCtx.fillStyle = shirtColor; targetCtx.fillRect(pX + pSize*0.5, pY + pSize*0.5, pSize*0.7, pSize*0.5);
             
             targetCtx.fillStyle = (gender === 'male') ? "#f3c192" : "#f7d7b4";
             targetCtx.fillRect(pX + pSize*0.25, pY + pSize*0.15, pSize*0.5, pSize*0.4);
@@ -801,7 +829,12 @@
         }
 
         function exitToMenu() { clearInterval(timerInterval); clearInterval(loopInterval); switchScreen('screenMenu'); }
-        window.onload = function() { loadProfile(); };
+        
+        window.onload = function() { 
+            loadProfile(); 
+            // Оставляем экран заставки активным при первом старте сайта
+            switchScreen('screenSplash'); 
+        };
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'w') movePlayer(0, -1);
