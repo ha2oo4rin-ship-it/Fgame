@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мега-Лабиринт: Кастомизация и Магазин</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --card-bg: #1f2833;
+            --accent-neon: #66fcf1;
+            --text-color: #fff;
+            --success: #2ecc71;
+            --danger: #ff4d4d;
+            --xp-color: #9b59b6;
+            --gem-color: #00d2d3;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden; user-select: none;
+        }
+
+        .screen {
+            display: none; flex-direction: column; align-items: center;
+            width: 100%; max-width: 420px; padding: 15px; box-sizing: border-box;
+            height: 100vh; overflow-y: auto;
+        }
+        .screen.active { display: flex; }
+
+        h1 {
+            color: var(--accent-neon); text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(102, 252, 241, 0.3); text-align: center; margin-bottom: 15px;
+            font-size: 26px; margin-top: 5px;
+        }
+
+        .profile-panel {
+            background: var(--card-bg); width: 100%; padding: 12px; 
+            border-radius: 12px; margin-bottom: 15px; box-sizing: border-box;
+            border: 1px solid rgba(102, 252, 241, 0.2);
+        }
+        .profile-stats { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold;}
+        .xp-bar-bg { background: #111; width: 100%; height: 10px; border-radius: 5px; overflow: hidden; }
+        .xp-bar-fill { background: var(--xp-color); height: 100%; width: 0%; transition: width 0.3s; }
+
+        .skin-selector { display: flex; gap: 10px; width: 100%; margin-bottom: 15px; }
+        .skin-btn {
+            flex: 1; background: #121212; border: 2px solid #333; color: #fff;
+            padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold;
+            display: flex; flex-direction: column; align-items: center; gap: 5px; transition: all 0.2s;
+        }
+        .skin-btn.selected { border-color: var(--accent-neon); background: var(--card-bg); }
+        .skin-preview { width: 40px; height: 40px; }
+
+        .menu-buttons { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+
+        .btn-ui {
+            background: var(--card-bg); color: var(--text-color); border: 2px solid var(--accent-neon);
+            padding: 12px; border-radius: 10px; font-size: 16px; font-weight: bold;
+            cursor: pointer; text-transform: uppercase; transition: all 0.2s; text-align: center; text-decoration: none;
+        }
+        .btn-ui:active { background: var(--accent-neon); color: var(--bg-color); box-shadow: 0 0 15px var(--accent-neon); }
+
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            width: 100%; margin-bottom: 10px; font-weight: bold; font-size: 12px; text-align: center;
+            background: var(--card-bg); padding: 8px; border-radius: 8px; box-sizing: border-box;
+        }
+
+        #gameCanvas { border: 3px solid var(--accent-neon); background-color: #121212; }
+        .controls {
+            display: grid; grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(2, 60px); gap: 10px; margin-top: 10px;
+        }
+        .joy-btn {
+            background: var(--card-bg); color: var(--accent-neon); border: 1px solid var(--accent-neon);
+            border-radius: 12px; font-size: 22px; display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation;
+        }
+        .joy-btn:active { background: #2f3e46; }
+        #up { grid-column: 2; }
+        #left { grid-column: 1; grid-row: 2; }
+        #down { grid-column: 2; grid-row: 2; }
+        #right { grid-column: 3; grid-row: 2; }
+
+        /* Стили Магазина */
+        .shop-container { width: 100%; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .shop-section { background: #121212; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .shop-section h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--accent-neon); text-transform: uppercase; }
+        .shop-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .shop-item-btn {
+            background: var(--card-bg); border: 1px solid #444; color: white; padding: 8px;
+            border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; text-align: center;
+            display: flex; flex-direction: column; justify-content: space-between; min-height: 55px;
+        }
+        .shop-item-btn.equipped { border: 1px solid var(--success); background: rgba(46, 204, 113, 0.1); }
+        .shop-item-btn.unlocked { border: 1px solid var(--xp-color); }
+        .shop-item-btn .price { color: var(--gem-color); margin-top: 4px; font-size: 10px; }
+
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 10;
+        }
+        .modal-content {
+            background: var(--card-bg); padding: 25px; border-radius: 15px;
+            text-align: center; border: 2px solid var(--success); max-width: 300px;
+        }
+        .code-box {
+            background: #000; padding: 10px; margin: 15px 0; border: 2px dashed var(--success);
+            color: var(--success); font-family: monospace; font-size: 20px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ -->
+    <div class="screen active" id="screenMenu">
+        <h1>Лабиринт</h1>
+        
+        <div class="profile-panel">
+            <div class="profile-stats">
+                <span style="color: var(--accent-neon);" id="menuAccLevel">Уровень: 1</span>
+                <span style="color: var(--gem-color);" id="menuGems">💎 0</span>
+            </div>
+            <div class="xp-bar-bg"><div class="xp-bar-fill" id="menuXpFill"></div></div>
+            <div style="font-size: 11px; text-align: right; color: #aaa; margin-top: 4px;" id="menuXpText">0 / 100 XP</div>
+        </div>
+
+        <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px; width: 100%; text-align: left; color: #a9b7c6;">Выберите героя:</div>
+        <div class="skin-selector">
+            <button class="skin-btn selected" id="skinMaleBtn" onclick="setGender('male')">
+                <canvas id="preMale" class="skin-preview" width="40" height="40"></canvas>
+                <span>Парень</span>
+            </button>
+            <button class="skin-btn" id="skinFemaleBtn" onclick="setGender('female')">
+                <canvas id="preFemale" class="skin-preview" width="40" height="40"></canvas>
+                <span>Девушка</span>
+            </button>
+        </div>
+
+        <div class="menu-buttons">
+            <button class="btn-ui" onclick="playClick(); startNewGame()">Играть</button>
+            <button class="btn-ui" onclick="playClick(); switchScreen('screenShop')">👕 Гардероб и Магазин</button>
+            <button class="btn-ui" onclick="playClick(); switchScreen('screenQuests')">Квесты</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН 2: ИГРОВОЙ ПРОЦЕСС -->
+    <div class="screen" id="screenGame">
+        <div class="stats-bar">
+            <span id="levelIndicator" style="color: var(--accent-neon);">Ур: 1/13</span>
+            <span id="timerIndicator">⏱ 30с</span>
+            <span id="stepsIndicator">👣 0</span>
+            <span id="keyIndicator" style="color: var(--danger);">Ключ: ❌</span>
+        </div>
+        <div id="gameStatus" style="margin-bottom: 10px; font-size: 13px; text-align: center; min-height: 20px;">Найди КЛЮЧ (🔑) и доберись до ДВЕРИ (🚪)</div>
+        
+        <canvas id="gameCanvas" width="360" height="360"></canvas>
+        
+        <div class="controls">
+            <button class="joy-btn" id="up" onclick="movePlayer(0, -1)">↑</button>
+            <button class="joy-btn" id="left" onclick="movePlayer(-1, 0)">←</button>
+            <button class="joy-btn" id="down" onclick="movePlayer(0, 1)">↓</button>
+            <button class="joy-btn" id="right" onclick="movePlayer(1, 0)">→</button>
+        </div>
+        <button class="btn-ui" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px;" onclick="playClick(); exitToMenu()">В меню</button>
+    </div>
+
+    <!-- ЭКРАН 3: МАГАЗИН И ГАРДЕРОБ -->
+    <div class="screen" id="screenShop">
+        <h1>Гардероб</h1>
+        <div class="profile-panel" style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>Баланс:</span>
+                <span style="color: var(--gem-color);" id="shopGems">💎 0</span>
+            </div>
+        </div>
+
+        <div class="shop-container" id="shopContainer">
+            <!-- Секции генерируются через JS -->
+        </div>
+
+        <button class="btn-ui" style="width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
+    </div>
+
+    <!-- ЭКРАН 4: КВЕСТЫ -->
+    <div class="screen" id="screenQuests">
+        <h1>Квесты</h1>
+        <div class="quest-list">
+            <div class="quest-card">
+                <h3>Подписка на Telegram</h3>
+                <p>Подпишись на наш игровой ТГ-канал.</p>
+                <div class="reward">+100 Алмазов в игре</div>
+                <div class="q-btns">
+                    <a href="https://t.me/your_tg_channel" target="_blank" class="q-btn q-go" onclick="playClick(); enableCheckBtn(1)">Перейти</a>
+                    <button class="q-btn q-check" id="qcheck1" disabled onclick="playClick(); addGems(100); showRewardModal('TG-GEMS-99')">Проверить</button>
+                </div>
+            </div>
+        </div>
+        <button class="btn-ui" style="margin-top: 30px; width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО НАГРАДЫ -->
+    <div class="modal" id="rewardModal">
+        <div class="modal-content">
+            <h2 id="modalTitle" style="color: var(--success); margin: 0;">Успех!</h2>
+            <p id="modalText"></p>
+            <div class="code-box" id="codeBox">XXXX-XXXX</div>
+            <button class="btn-ui" style="padding: 10px; width: 100%;" id="modalBtn" onclick="playClick(); closeModal()">Отлично</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ДАННЫЕ ПРОФИЛЯ И МАГАЗИНА ---
+        let playerData = {
+            gender: 'male',
+            gems: 0,
+            level: 1,
+            xp: 0,
+            // Выбранные вещи
+            equipped: { hat: 0, glasses: 0, shirt: 0 },
+            // Купленные индексы предметов [0 всегда разблокировано]
+            unlocked: { hat: [0], glasses: [0], shirt: [0] }
+        };
+
+        // База вещей кастомизации
+        const customizationItems = {
+            hat: [
+                { id: 0, name: "Без убора", color: "transparent" },
+                { id: 1, name: "Кепка", color: "#e74c3c" },
+                { id: 2, name: "Бандана", color: "#f1c40f" },
+                { id: 3, name: "Шапка", color: "#34495e" }
+            ],
+            glasses: [
+                { id: 0, name: "Обычные", color: "#000000" },
+                { id: 1, name: "Круглые", color: "#7f8c8d" },
+                { id: 2, name: "Авиаторы", color: "#f39c12" },
+                { id: 3, name: "Без очков", color: "transparent" }
+            ],
+            shirt: [
+                { id: 0, name: "Обычная", color: "default" },
+                { id: 1, name: "Худи", color: "#27ae60" },
+                { id: 2, name: "VIP Жилет", color: "#f1c40f" },
+                { id: 3, name: "Кибер кофта", color: "#e84393" }
+            ]
+        };
+
+        function loadProfile() {
+            const saved = localStorage.getItem('maze_runner_profile_v2');
+            if (saved) {
+                let parsed = JSON.parse(saved);
+                // Защита от старых сохранений
+                if (parsed.equipped) playerData = parsed;
+            }
+            updateProfileUI();
+        }
+
+        function saveProfile() {
+            localStorage.setItem('maze_runner_profile_v2', JSON.stringify(playerData));
+            updateProfileUI();
+        }
+
+        function getXpNeeded(level) { return level * 100; }
+
+        function addRewards() {
+            playerData.gems += 20;
+            if (playerData.level < 10) {
+                playerData.xp += 25;
+                let xpNeeded = getXpNeeded(playerData.level);
+                if (playerData.xp >= xpNeeded) {
+                    playerData.xp -= xpNeeded;
+                    playerData.level++;
+                    if (playerData.level > 10) { playerData.level = 10; playerData.xp = 0; }
+                    setTimeout(() => { playWinSound(); }, 500);
+                }
+            }
+            saveProfile();
+        }
+
+        function addGems(amount) { playerData.gems += amount; saveProfile(); }
+
+        function updateProfileUI() {
+            document.getElementById('menuAccLevel').innerText = `Уровень: ${playerData.level} ${playerData.level === 10 ? '(МАКС)' : ''}`;
+            document.getElementById('menuGems').innerText = `💎 ${playerData.gems}`;
+            document.getElementById('shopGems').innerText = `💎 ${playerData.gems}`;
+            
+            let xpNeeded = getXpNeeded(playerData.level);
+            let fillPct = playerData.level === 10 ? 100 : (playerData.xp / xpNeeded) * 100;
+            document.getElementById('menuXpFill').style.width = `${fillPct}%`;
+            document.getElementById('menuXpText').innerText = playerData.level === 10 ? "МАКСИМУМ ДОСТИГНУТ" : `${playerData.xp} / ${xpNeeded} XP`;
+
+            document.getElementById('skinMaleBtn').classList.remove('selected');
+            document.getElementById('skinFemaleBtn').classList.remove('selected');
+            if (playerData.gender === 'male') document.getElementById('skinMaleBtn').classList.add('selected');
+            else document.getElementById('skinFemaleBtn').classList.add('selected');
+
+            renderMenuPreviews();
+        }
+
+        function setGender(g) { playerData.gender = g; playClick(); saveProfile(); }
+
+        // --- СИСТЕМА МАГАЗИНА И ГАРДЕРОБА ---
+        function renderShop() {
+            const container = document.getElementById('shopContainer');
+            container.innerHTML = "";
+
+            const categories = [
+                { type: 'hat', title: '🧢 Головные уборы (250 💎)' },
+                { type: 'glasses', title: '👓 Очки и маски (250 💎)' },
+                { type: 'shirt', title: '👕 Футболки и верх (250 💎)' }
+            ];
+
+            categories.forEach(cat => {
+                let section = document.createElement('div');
+                section.className = 'shop-section';
+                section.innerHTML = `<h3>${cat.title}</h3>`;
+                
+                let itemsGrid = document.createElement('div');
+                itemsGrid.className = 'shop-items';
+
+                customizationItems[cat.type].forEach(item => {
+                    let isUnlocked = playerData.unlocked[cat.type].includes(item.id);
+                    let isEquipped = playerData.equipped[cat.type] === item.id;
+                    
+                    let btn = document.createElement('button');
+                    btn.className = 'shop-item-btn';
+                    if (isEquipped) btn.className += ' equipped';
+                    else if (isUnlocked) btn.className += ' unlocked';
+
+                    let label = isEquipped ? "Надето" : (isUnlocked ? "Надеть" : "Купить");
+                    let priceTag = (item.id === 0 || isUnlocked) ? "" : `<span class="price">250 💎</span>`;
+
+                    btn.innerHTML = `<div>${item.name}</div><div style="font-size:9px; color:#aaa;">${label}</div>${priceTag}`;
+                    btn.onclick = () => handleShopAction(cat.type, item.id);
+
+                    itemsGrid.appendChild(btn);
+                });
+
+                section.appendChild(itemsGrid);
+                container.appendChild(section);
+            });
+        }
+
+        function handleShopAction(type, id) {
+            let isUnlocked = playerData.unlocked[type].includes(id);
+
+            if (isUnlocked) {
+                playerData.equipped[type] = id;
+                playClick();
+                saveProfile();
+                renderShop();
+            } else {
+                if (playerData.gems >= 250) {
+                    playerData.gems -= 250;
+                    playerData.unlocked[type].push(id);
+                    playerData.equipped[type] = id;
+                    playKeySound(); // Звук успешной покупки
+                    saveProfile();
+                    renderShop();
+                } else {
+                    playLockedSound(); // Недостаточно средств
+                    alert("Недостаточно алмазов! Проходи лабиринты (+20💎) или выполняй квесты.");
+                }
+            }
+        }
+
+        // --- АУДИО СИНТЕЗАТОР ---
+        let audioCtx = null;
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        function playClick() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1); g.gain.setValueAtTime(0.15, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+        function playStepSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'triangle'; osc.frequency.setValueAtTime(140, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(70, audioCtx.currentTime + 0.05); g.gain.setValueAtTime(0.12, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); osc.start(); osc.stop(audioCtx.currentTime + 0.05); }
+        function playTickSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); g.gain.setValueAtTime(0.08, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); osc.start(); osc.stop(audioCtx.currentTime + 0.05); }
+        function playKeySound() { initAudio(); let now = audioCtx.currentTime, notes = [523.25, 659.25, 783.99, 1046.50]; notes.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sine'; osc.frequency.setValueAtTime(f, now + i * 0.06); g.gain.setValueAtTime(0.12, now + i * 0.06); g.gain.linearRampToValueAtTime(0.01, now + i * 0.06 + 0.25); osc.start(now + i * 0.06); osc.stop(now + i * 0.06 + 0.25); }); }
+        function playLockedSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(95, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(65, audioCtx.currentTime + 0.2); g.gain.setValueAtTime(0.25, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+        function playWinSound() { initAudio(); let now = audioCtx.currentTime, melody = [587.33, 587.33, 587.33, 783.99, 987.77], durs = [0.08, 0.08, 0.08, 0.15, 0.35], ts = 0; melody.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'triangle'; osc.frequency.setValueAtTime(f, now + ts); g.gain.setValueAtTime(0.15, now + ts); g.gain.linearRampToValueAtTime(0.01, now + ts + durs[i]); osc.start(now + ts); osc.stop(now + ts + durs[i]); ts += durs[i] * 1.2; }); }
+        function playGameOverSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(180, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.5); g.gain.setValueAtTime(0.25, audioCtx.currentTime); g.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5); osc.start(); osc.stop(audioCtx.currentTime + 0.5); }
+
+        // --- ИГРОВОЙ ИНТЕРФЕЙС ---
+        function switchScreen(screenId) { 
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); 
+            document.getElementById(screenId).classList.add('active'); 
+            if (screenId === 'screenShop') renderShop();
+            updateProfileUI(); 
+        }
+        function enableCheckBtn(id) { setTimeout(() => { document.getElementById(`qcheck${id}`).removeAttribute('disabled'); }, 1000); }
+        function showRewardModal(code, title = "Успех!", text = "Твой промокод:") { document.getElementById('modalTitle').innerText = title; document.getElementById('modalText').innerText = text; document.getElementById('codeBox').innerText = code; document.getElementById('rewardModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('rewardModal').style.display = 'none'; if (currentLevel > 13) switchScreen('screenMenu'); }
+
+        // --- БАЗА ИЗ 13 УРОВНЕЙ ---
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const statusText = document.getElementById('gameStatus'); const levelIndicator = document.getElementById('levelIndicator');
+        const keyIndicator = document.getElementById('keyIndicator'); const timerIndicator = document.getElementById('timerIndicator'); const stepsIndicator = document.getElementById('stepsIndicator');
+
+        let currentLevel = 1; let map, player, hasKey, gameOver, tileSize, gridSize;
+        let stepsCount = 0; let timeLeft = 0; let timerInterval = null;
+
+        const levels = {
+            1: { gridSize: 10, timeLimit: 30, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,1],[1,0,1,0,1,0,1,1,0,1],[1,0,1,0,0,0,0,1,0,1],[1,0,1,1,1,1,0,1,0,1],[1,0,0,0,'K',1,0,1,0,1],[1,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,1,0,0,0,1],[1,0,1,1,0,0,0,1,'D',1],[1,1,1,1,1,1,1,1,1,1]] },
+            2: { gridSize: 10, timeLimit: 35, playerStart: { x: 8, y: 8 }, map: [[1,1,1,1,1,1,1,1,1,1],[1,'D',0,1,0,0,0,0,0,1],[1,1,0,1,0,1,1,1,0,1],[1,0,0,0,0,1,'K',1,0,1],[1,0,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,1,0,0,0,1],[1,0,1,1,0,1,1,1,0,1],[1,1,1,1,1,1,1,1,1,1]] },
+            3: { gridSize: 10, timeLimit: 40, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,1,0,0,1],[1,0,1,0,1,0,1,1,0,1],[1,0,0,0,1,0,0,1,0,1],[1,1,1,0,1,1,0,1,0,1],[1,0,1,0,0,1,0,0,0,1],[1,0,1,1,0,1,1,1,'K',1],[1,0,0,1,0,0,0,1,1,1],[1,1,0,0,0,1,0,0,'D',1],[1,1,1,1,1,1,1,1,1,1]] },
+            4: { gridSize: 10, timeLimit: 35, playerStart: { x: 1, y: 8 }, map: [[1,1,1,1,1,1,1,1,1,1],[1,'K',0,0,1,0,0,0,0,1],[1,1,1,0,1,0,1,1,0,1],[1,0,0,0,0,0,1,0,0,1],[1,0,1,1,1,1,1,0,1,1],[1,0,0,0,1,0,0,0,0,1],[1,1,1,0,1,0,1,1,'D',1],[1,0,0,0,0,0,1,1,1,1],[1,0,1,1,1,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1]] },
+            5: { gridSize: 11, timeLimit: 45, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,1,0,0,0,0,'K',1],[1,0,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,1,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,1],[1,0,0,0,1,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,'D',1],[1,1,1,1,1,1,1,1,1,1,1]] },
+            6: { gridSize: 11, timeLimit: 40, playerStart: { x: 9, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1],[1,'D',0,0,0,1,0,0,0,0,1],[1,1,1,1,0,1,0,1,1,0,1],[1,0,0,1,0,1,0,1,0,0,1],[1,0,1,1,0,0,0,1,0,1,1],[1,0,0,1,1,1,1,1,0,1,1],[1,1,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,'K',1,0,1],[1,0,1,1,1,1,1,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1]] },
+            7: { gridSize: 11, timeLimit: 42, playerStart: { x: 1, y: 9 }, map: [[1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1],[1,0,1,'K',1,0,0,0,1,0,1],[1,0,1,0,1,1,1,1,1,0,1],[1,0,0,0,0,0,0,0,1,0,1],[1,1,1,1,1,0,1,0,1,0,1],[1,0,0,0,1,0,1,0,0,0,1],[1,0,1,0,1,0,1,1,1,'D',1],[1,0,1,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1,1]] },
+            8: { gridSize: 12, timeLimit: 50, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,0,0,1,'K',1,0,1],[1,0,1,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,1,0,1,0,0,0,1],[1,1,1,1,0,1,0,1,1,1,1,1],[1,0,0,1,0,0,0,0,0,0,0,1],[1,0,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,1,0,1],[1,0,0,0,1,1,1,1,0,0,'D',1],[1,1,1,1,1,1,1,1,1,1,1,1]] },
+            9: { gridSize: 12, timeLimit: 45, playerStart: { x: 10, y: 10 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1],[1,'K',0,0,0,0,1,0,0,0,0,1],[1,1,1,1,1,0,1,0,1,1,0,1],[1,0,0,0,1,0,0,0,1,0,0,1],[1,0,1,0,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,1,0,1,0,1],[1,1,1,1,1,1,0,1,0,1,0,1],[1,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,0,0,0,1,1,1,'D',1],[1,1,1,1,1,1,1,1,1,1,1,1]] },
+            10: { gridSize: 12, timeLimit: 48, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1],[1,0,1,0,0,0,0,0,1,0,0,1],[1,0,1,0,1,1,1,0,1,0,1,1],[1,0,0,0,1,'D',1,0,0,0,1,1],[1,1,1,0,1,0,1,1,1,1,1,1],[1,0,1,0,1,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,0,1,0,1],[1,0,0,0,0,0,0,1,0,0,0,1],[1,1,1,1,1,1,'K',1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1]] },
+            11: { gridSize: 13, timeLimit: 55, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,'K',1,0,1,0,1,0,1,0,1],[1,0,1,0,1,0,0,0,1,0,1,0,1],[1,0,0,0,1,1,1,1,1,0,0,0,1],[1,1,1,0,1,0,0,0,1,0,1,1,1],[1,0,0,0,0,0,1,0,0,0,1,0,1],[1,0,1,1,1,1,1,1,1,1,1,0,1],[1,0,1,0,0,0,0,0,0,0,0,0,1],[1,0,1,0,1,1,1,1,1,1,1,0,1],[1,0,0,0,1,0,0,0,0,0,0,'D',1],[1,1,1,1,1,1,1,1,1,1,1,1,1]] },
+            12: { gridSize: 13, timeLimit: 50, playerStart: { x: 11, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1,1],[1,'D',0,0,1,0,0,0,0,0,1,0,1],[1,1,1,0,1,0,1,1,1,0,1,0,1],[1,0,0,0,1,0,1,'K',1,0,1,0,1],[1,0,1,1,1,0,1,0,1,0,0,0,1],[1,0,0,0,0,0,1,0,1,1,1,1,1],[1,1,1,1,1,1,1,0,0,0,0,0,1],[1,0,0,0,0,0,0,1,1,1,1,0,1],[1,0,1,1,1,1,0,1,0,0,0,0,1],[1,0,1,0,0,1,0,1,0,1,1,1,1],[1,0,1,0,0,1,0,0,0,1,0,0,1],[1,0,0,0,0,1,1,1,1,1,0,0,1],[1,1,1,1,1,1,1,1,1,1,1,1,1]] },
+            13: { gridSize: 14, timeLimit: 60, playerStart: { x: 1, y: 1 }, map: [[1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,1,0,0,0,0,0,1],[1,0,1,1,1,1,0,1,0,1,1,1,0,1],[1,0,1,0,0,1,0,0,0,1,0,1,0,1],[1,0,1,0,0,1,1,1,1,1,0,1,0,1],[1,0,1,1,0,1,0,0,0,0,0,1,0,1],[1,0,0,1,0,1,0,1,1,1,1,1,0,1],[1,1,0,1,0,0,0,1,0,0,0,0,0,1],[1,0,0,1,1,1,1,1,0,1,1,1,1,1],[1,0,1,1,0,0,0,0,0,1,0,0,0,1],[1,0,0,1,0,1,1,1,1,1,0,1,0,1],[1,1,0,1,0,1,0,0,0,0,0,1,'K',1],[1,1,0,0,0,1,0,1,1,1,0,1,'D',1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1]] }
+        };
+
+        function startNewGame() { currentLevel = 1; switchScreen('screenGame'); loadLevel(currentLevel); }
+
+        function loadLevel(lvlId) {
+            clearInterval(timerInterval);
+            const lvl = levels[lvlId]; gridSize = lvl.gridSize;
+            map = JSON.parse(JSON.stringify(lvl.map)); player = { ...lvl.playerStart };
+            hasKey = false; gameOver = false; tileSize = canvas.width / gridSize;
+            stepsCount = 0; timeLeft = lvl.timeLimit;
+
+            levelIndicator.innerText = `Ур: ${lvlId}/13`; stepsIndicator.innerText = `👣 ${stepsCount}`;
+            timerIndicator.innerText = `⏱ ${timeLeft}с`; timerIndicator.style.color = "white";
+            keyIndicator.innerText = "Ключ: ❌"; keyIndicator.style.color = "var(--danger)";
+            statusText.innerText = "Найди КЛЮЧ (🔑) и доберись до ДВЕРИ (🚪)"; statusText.style.color = "white";
+            
+            timerInterval = setInterval(() => {
+                if (gameOver) return;
+                timeLeft--; timerIndicator.innerText = `⏱ ${timeLeft}с`;
+                if (timeLeft <= 10 && timeLeft > 0) { timerIndicator.style.color = "var(--danger)"; playTickSound(); }
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval); gameOver = true; playGameOverSound();
+                    statusText.innerText = "ВРЕМЯ ИСТЕКЛО! Попробуй снова."; statusText.style.color = "var(--danger)";
+                    setTimeout(() => { loadLevel(currentLevel); }, 2000);
+                }
+            }, 1000);
+            drawMap();
+        }
+
+        // --- ПРОДВИНУТАЯ СИСТЕМА ОТРИСОВКИ С УЧЕТОМ ГАРДЕРОБА ---
+        function renderCharacter(targetCtx, gender, size, forcedCustom = null) {
+            targetCtx.clearRect(0,0,size,size);
+            let pX = size * 0.15, pY = size * 0.15, pSize = size * 0.7;
+
+            // Определяем, какие вещи надеты (из профиля или переданные принудительно)
+            let currentHat = forcedCustom ? forcedCustom.hat : playerData.equipped.hat;
+            let currentGlasses = forcedCustom ? forcedCustom.glasses : playerData.equipped.glasses;
+            let currentShirt = forcedCustom ? forcedCustom.shirt : playerData.equipped.shirt;
+
+            // 1. ЦВЕТ ФУТБОЛКИ (ГАРДЕРОБ)
+            let shirtColor = "#2980b9"; // Базовый мужской
+            if (gender === 'female') shirtColor = "#9b59b6"; // Базовый женский
+
+            if (currentShirt > 0) {
+                shirtColor = customizationItems.shirt[currentShirt].color;
+            }
+
+            targetCtx.fillStyle = shirtColor;
+            targetCtx.fillRect(pX + pSize*0.15, pY + pSize*0.5, pSize*0.7, pSize*0.5);
+            
+            // Если VIP-жилет — добавим золотые пуговицы/полоски
+            if (currentShirt === 2) {
+                targetCtx.fillStyle = "#d35400";
+                targetCtx.fillRect(pX + pSize*0.45, pY + pSize*0.5, pSize*0.1, pSize*0.5);
+            }
+
+            // 2. ГОЛОВА И БАЗОВЫЕ ВОЛОСЫ
+            targetCtx.fillStyle = (gender === 'male') ? "#f3c192" : "#f7d7b4";
+            targetCtx.fillRect(pX + pSize*0.25, pY + pSize*0.15, pSize*0.5, pSize*0.4);
+
+            // Волосы (база)
+            targetCtx.fillStyle = (gender === 'male') ? "#2c3e50" : "#d35400";
+            if (gender === 'male') {
+                targetCtx.fillRect(pX + pSize*0.2, pY + pSize*0.08, pSize*0.6, pSize*0.15);
+                targetCtx.fillRect(pX + pSize*0.2, pY + pSize*0.2, pSize*0.1, pSize*0.15);
+                targetCtx.fillRect(pX + pSize*0.7, pY + pSize*0.2, pSize*0.1, pSize*0.15);
+            } else {
+                targetCtx.fillRect(pX + pSize*0.2, pY + pSize*0.06, pSize*0.6, pSize*0.16);
+                targetCtx.fillRect(pX + pSize*0.2, pY + pSize*0.2, pSize*0.12, pSize*0.3);
+                targetCtx.fillRect(pX + pSize*0.68, pY + pSize*0.2, pSize*0.12, pSize*0.3);
+                targetCtx.fillRect(pX + pSize*0.08, pY + pSize*0.1, pSize*0.15, pSize*0.15); // Хвостик
+            }
+
+            // 3. СИСТЕМА ОЧКОВ (ГАРДЕРОБ)
+            if (currentGlasses !== 3) { // 3 — это «Без очков»
+                let glassColor = customizationItems.glasses[currentGlasses].color;
+                targetCtx.strokeStyle = glassColor;
+                targetCtx.lineWidth = Math.max(1, size * 0.03);
+                
+                // Рендер формы очков
+                if (currentGlasses === 1) { // Круглые очки
+                    targetCtx.beginPath();
+                    targetCtx.arc(pX + pSize*0.36, pY + pSize*0.34, pSize*0.09, 0, Math.PI*2);
+                    targetCtx.arc(pX + pSize*0.64, pY + pSize*0.34, pSize*0.09, 0, Math.PI*2);
+                    targetCtx.stroke();
+                } else { // Квадратные или авиаторы
+                    targetCtx.strokeRect(pX + pSize*0.28, pY + pSize*0.28, pSize*0.16, pSize*0.12);
+                    targetCtx.strokeRect(pX + pSize*0.56, pY + pSize*0.28, pSize*0.16, pSize*0.12);
+                }
+                
+                // Перемычка очков
+                targetCtx.beginPath(); targetCtx.moveTo(pX + pSize*0.44, pY + pSize*0.34); targetCtx.lineTo(pX + pSize*0.56, pY + pSize*0.34); targetCtx.stroke();
+
+                // Стекло для авиаторов / темных очков
+                if (currentGlasses === 2 || currentGlasses === 1) {
+                    targetCtx.fillStyle = (currentGlasses === 2) ? "rgba(243, 156, 18, 0.4)" : "rgba(0,0,0,0.6)";
+                    if (currentGlasses === 1) {
+                        targetCtx.beginPath(); targetCtx.arc(pX + pSize*0.36, pY + pSize*0.34, pSize*0.08, 0, Math.PI*2); targetCtx.fill();
+                        targetCtx.beginPath(); targetCtx.arc(pX + pSize*0.64, pY + pSize*0.34, pSize*0.08, 0, Math.PI*2); targetCtx.fill();
+                    } else {
+                        targetCtx.fillRect(pX + pSize*0.29, pY + pSize*0.29, pSize*0.14, pSize*0.1);
+                        targetCtx.fillRect(pX + pSize*0.57, pY + pSize*0.29, pSize*0.14, pSize*0.1);
+                    }
+                }
+            }
+
+            // Глаза за очками
+            targetCtx.fillStyle = "#000";
+            targetCtx.fillRect(pX + pSize*0.33, pY + pSize*0.32, pSize*0.06, pSize*0.06);
+            targetCtx.fillRect(pX + pSize*0.61, pY + pSize*0.32, pSize*0.06, pSize*0.06);
+
+            // Улыбка
+            targetCtx.strokeStyle = "#e74c3c"; targetCtx.lineWidth = 1;
+            targetCtx.beginPath(); targetCtx.arc(pX + pSize*0.5, pY + pSize*0.44, pSize*0.08, 0, Math.PI); targetCtx.stroke();
+
+            // 4. СИСТЕМА ГОЛОВНЫХ УБОРОВ (ГАРДЕРОБ)
+            if (currentHat > 0) {
+                let hatColor = customizationItems.hat[currentHat].color;
+                targetCtx.fillStyle = hatColor;
+
+                if (currentHat === 1) { // Кепка с козырьком
+                    targetCtx.fillRect(pX + pSize*0.18, pY + pSize*0.02, pSize*0.64, pSize*0.15); // Основа
+                    targetCtx.fillRect(pX + pSize*0.5, pY + pSize*0.1, pSize*0.4, pSize*0.06); // Козырек вправо
+                } else if (currentHat === 2) { // Бандана
+                    targetCtx.fillRect(pX + pSize*0.2, pY + pSize*0.04, pSize*0.6, pSize*0.14);
+                    // Узелок банданы слева
+                    targetCtx.fillRect(pX + pSize*0.14, pY + pSize*0.1, pSize*0.08, pSize*0.08);
+                } else if (currentHat === 3) { // Зимняя тепловая шапка
+                    targetCtx.fillRect(pX + pSize*0.22, pY + pSize*0.01, pSize*0.56, pSize*0.2);
+                    // Бубончик сверху
+                    targetCtx.fillStyle = "#fff";
+                    targetCtx.fillRect(pX + pSize*0.44, pY - pSize*0.05, pSize*0.12, pSize*0.08);
+                }
+            }
+        }
+
+        function drawPlayer(x, y, size) {
+            ctx.save(); ctx.translate(x, y);
+            renderCharacter(ctx, playerData.gender, size);
+            ctx.restore();
+        }
+
+        function renderMenuPreviews() {
+            // Отрисовка превьюшек на кнопках выбора пола (с учетом текущих вещей)
+            let mCanvas = document.getElementById('preMale');
+            if (mCanvas) renderCharacter(mCanvas.getContext('2d'), 'male', 40);
+            
+            let fCanvas = document.getElementById('preFemale');
+            if (fCanvas) renderCharacter(fCanvas.getContext('2d'), 'female', 40);
+        }
+
+        function drawMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    let tile = map[r][c]; let x = c * tileSize; let y = r * tileSize;
+                    if (tile === 1) {
+                        ctx.fillStyle = '#1f2833'; ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
+                    } else if (tile === 'K') {
+                        ctx.font = `${tileSize * 0.6}px Arial`; ctx.fillText("🔑", x + tileSize*0.15, y + tileSize*0.75);
+                    } else if (tile === 'D') {
+                        ctx.font = `${tileSize * 0.6}px Arial`; ctx.fillText("🚪", x + tileSize*0.15, y + tileSize*0.75);
+                    }
+                }
+            }
+            drawPlayer(player.x * tileSize, player.y * tileSize, tileSize);
+        }
+
+        function movePlayer(dx, dy) {
+            if (gameOver) return;
+            let nX = player.x + dx; let nY = player.y + dy;
+            
+            if (nX >= 0 && nX < gridSize && nY >= 0 && nY < gridSize && map[nY][nX] !== 1) {
+                player.x = nX; player.y = nY;
+                stepsCount++; stepsIndicator.innerText = `👣 ${stepsCount}`;
+                playStepSound();
+                
+                if (map[nY][nX] === 'K') {
+                    hasKey = true; map[nY][nX] = 0; playKeySound();
+                    keyIndicator.innerText = "Ключ: ✔"; keyIndicator.style.color = "var(--success)";
+                    statusText.innerText = "Ключ получен! Беги к выходу!";
+                }
+                
+                if (map[nY][nX] === 'D') {
+                    if (hasKey) {
+                        gameOver = true; clearInterval(timerInterval);
+                        
+                        let oldLevel = playerData.level;
+                        addRewards(); // Начисляем 20 алмазов и 25 XP
+                        currentLevel++; playWinSound();
+                        
+                        let levelUpText = (playerData.level > oldLevel) ? `<br><span style="color:var(--accent-neon); font-size:15px;">▲ АП АККАУНТА: Уровень ${playerData.level}!</span>` : "";
+
+                        if (levels[currentLevel]) {
+                            showRewardModal(`+20 💎 / +25 XP`, `Уровень ${currentLevel-1} пройден!`, `Награда зачислена. Пройдено за ${stepsCount} шагов. ${levelUpText}`);
+                            document.getElementById('modalBtn').onclick = function() {
+                                playClick(); document.getElementById('rewardModal').style.display = 'none';
+                                loadLevel(currentLevel);
+                            };
+                        } else {
+                            showRewardModal('ULTRA-MAZE-GOD', 'ПОЛНАЯ ПОБЕДА!', `Вы прошли все 13 уровней лабиринта!`);
+                            document.getElementById('modalBtn').onclick = function() { playClick(); exitToMenu(); };
+                        }
+                    } else {
+                        playLockedSound();
+                        statusText.innerText = "Дверь заперта! Найди КЛЮЧ!"; statusText.style.color = "var(--danger)";
+                    }
+                }
+                drawMap();
+            }
+        }
+
+        function exitToMenu() { clearInterval(timerInterval); switchScreen('screenMenu'); }
+
+        window.onload = function() {
+            loadProfile();
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') movePlayer(0, -1);
+            if (e.key === 'ArrowDown' || e.key === 's') movePlayer(0, 1);
+            if (e.key === 'ArrowLeft' || e.key === 'a') movePlayer(-1, 0);
+            if (e.key === 'ArrowRight' || e.key === 'd') movePlayer(1, 0);
+        });
+    </script>
+</body>
+</html>
