@@ -68,11 +68,18 @@
         .btn-continue { border-color: var(--success); color: var(--success); }
         .btn-continue:not(:disabled):active { background: var(--success); color: #fff; box-shadow: 0 0 15px var(--success); }
 
+        /* Верхняя панель: сетка изменена под кнопку меню */
         .stats-bar {
-            display: grid; grid-template-columns: repeat(3, 1fr);
+            display: grid; grid-template-columns: 50px repeat(3, 1fr);
             width: 100%; margin-bottom: 10px; font-weight: bold; font-size: 11px; text-align: center;
-            background: var(--card-bg); padding: 8px; border-radius: 8px; box-sizing: border-box; gap: 5px;
+            background: var(--card-bg); padding: 6px; border-radius: 8px; box-sizing: border-box; gap: 5px;
+            align-items: center;
         }
+        .btn-mini-menu {
+            background: #111; border: 1px solid var(--accent-neon); color: var(--accent-neon);
+            border-radius: 5px; cursor: pointer; font-size: 14px; padding: 4px 0; font-weight: bold;
+        }
+        .btn-mini-menu:active { background: var(--accent-neon); color: #000; }
 
         #canvasContainer { position: relative; width: 360px; height: 360px; }
         #gameCanvas { border: 3px solid var(--accent-neon); background-color: #121212; width: 100%; height: 100%; }
@@ -84,16 +91,17 @@
             transition: background 0.1s ease;
         }
 
+        /* Увеличенные кнопки управления */
         .controls {
-            display: grid; grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(2, 60px); gap: 10px; margin-top: 10px;
+            display: grid; grid-template-columns: repeat(3, 75px);
+            grid-template-rows: repeat(2, 75px); gap: 12px; margin-top: 15px;
         }
         .joy-btn {
             background: var(--card-bg); color: var(--accent-neon); border: 1px solid var(--accent-neon);
-            border-radius: 12px; font-size: 22px; display: flex; align-items: center; justify-content: center;
-            touch-action: manipulation;
+            border-radius: 14px; font-size: 26px; display: flex; align-items: center; justify-content: center;
+            touch-action: manipulation; cursor: pointer;
         }
-        .joy-btn:active { background: #2f3e46; }
+        .joy-btn:active { background: #2f3e46; box-shadow: 0 0 8px var(--accent-neon); }
         #up { grid-column: 2; }
         #left { grid-column: 1; grid-row: 2; }
         #down { grid-column: 2; grid-row: 2; }
@@ -136,7 +144,6 @@
 </head>
 <body>
 
-    <!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ -->
     <div class="screen active" id="screenMenu">
         <h1>Лабиринт</h1>
         
@@ -173,14 +180,13 @@
         </div>
     </div>
 
-    <!-- ЭКРАН 2: ИГРОВОЙ ПРОЦЕСС -->
     <div class="screen" id="screenGame">
         <div class="stats-bar">
+            <button class="btn-mini-menu" onclick="playClick(); exitToMenu()">⚙️</button>
             <span id="levelIndicator" style="color: var(--accent-neon);">Ур: 1/50</span>
             <span id="gameLives" style="color: var(--danger);">❤️ 5</span>
             <span id="timerIndicator">⏱ 30с</span>
-            <span id="stepsIndicator" style="display:none">👣 0</span>
-            <span id="keyIndicator" style="color: var(--danger); grid-column: span 3;">Ключ: ❌</span>
+            <span id="keyIndicator" style="color: var(--danger); grid-column: span 4;">Ключ: ❌</span>
         </div>
         <div id="gameStatus" style="margin-bottom: 10px; font-size: 12px; text-align: center; min-height: 20px;">Найди КЛЮЧ (🔑) и беги от охранников!</div>
         
@@ -195,10 +201,8 @@
             <button class="joy-btn" id="down" onclick="movePlayer(0, 1)">↓</button>
             <button class="joy-btn" id="right" onclick="movePlayer(1, 0)">→</button>
         </div>
-        <button class="btn-ui" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px;" onclick="playClick(); exitToMenu()">В меню</button>
     </div>
 
-    <!-- ЭКРАН 3: МАГАЗИН И ГАРДЕРОБ -->
     <div class="screen" id="screenShop">
         <h1>Гардероб и Магазин</h1>
         <div class="profile-panel" style="margin-bottom: 10px;">
@@ -217,7 +221,6 @@
         <button class="btn-ui" style="width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
-    <!-- ЭКРАН 4: КВЕСТЫ -->
     <div class="screen" id="screenQuests">
         <h1>Квесты</h1>
         <div class="quest-list">
@@ -234,7 +237,6 @@
         <button class="btn-ui" style="margin-top: 30px; width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО НАГРАДЫ -->
     <div class="modal" id="rewardModal">
         <div class="modal-content">
             <h2 id="modalTitle" style="color: var(--success); margin: 0;">Успех!</h2>
@@ -342,7 +344,6 @@
             document.getElementById('menuXpFill').style.width = `${fillPct}%`;
             document.getElementById('menuXpText').innerText = `${playerData.xp} / ${xpNeeded} XP`;
 
-            // Обновляем визуальное выделение кнопок выбора пола
             if (playerData.gender === 'female') {
                 document.getElementById('skinFemaleBtn').classList.add('selected');
                 document.getElementById('skinMaleBtn').classList.remove('selected');
@@ -573,7 +574,7 @@
             while(spawnCount < maxNpcs) {
                 let nx = Math.floor(Math.random() * (gridSize-2)) + 1;
                 let ny = Math.floor(Math.random() * (gridSize-2)) + 1;
-                if (map[ny][nx] === 0 && (nx > 3 || ny > 3)) {
+                if (map[ny][nx] === 0 && (nx > 4 || ny > 4)) {
                     npcs.push({
                         x: nx, y: ny,
                         dx: Math.random() > 0.5 ? 1 : -1, dy: 0,
@@ -603,9 +604,9 @@
             
             npcMoveCounter++;
             let moveDelay = 2; 
-            if (currentLevel < 5) moveDelay = 4;       
-            else if (currentLevel < 12) moveDelay = 3; 
-            else moveDelay = 2;                        
+            if (currentLevel < 5) moveDelay = 5;       
+            else if (currentLevel < 12) moveDelay = 4; 
+            else moveDelay = 3;                        
 
             if (npcMoveCounter >= moveDelay) {
                 npcMoveCounter = 0;
@@ -615,12 +616,27 @@
                     let nextX = npc.x + npc.dx;
                     let nextY = npc.y + npc.dy;
 
+                    let distToPlayer = Math.abs(npc.x - player.x) + Math.abs(npc.y - player.y);
+                    
+                    if (distToPlayer <= 1 && Math.random() < 0.35) {
+                        npc.dirTimer = 99; 
+                    }
+
                     if (npc.dirTimer > 6 || map[nextY][nextX] === 1) {
                         npc.dirTimer = 0;
                         let possibleDirs = [[0,-1],[0,1],[-1,0],[1,0]];
                         let validDirs = possibleDirs.filter(d => map[npc.y + d[1]][npc.x + d[0]] !== 1);
+                        
+                        if (distToPlayer <= 2 && validDirs.length > 1) {
+                            validDirs.sort((a, b) => {
+                                let distA = Math.abs((npc.x + a[0]) - player.x) + Math.abs((npc.y + a[1]) - player.y);
+                                let distB = Math.abs((npc.x + b[0]) - player.x) + Math.abs((npc.y + b[1]) - player.y);
+                                return distB - distA; 
+                            });
+                        }
+
                         if (validDirs.length > 0) {
-                            let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+                            let chosen = validDirs[0]; 
                             npc.dx = chosen[0]; npc.dy = chosen[1];
                             npc.flashAngle = Math.atan2(npc.dy, npc.dx);
                         }
@@ -722,21 +738,17 @@
             let cG = playerData.equipped.glasses;
             let cS = playerData.equipped.shirt;
 
-            // Настройка цвета одежды по умолчанию (Парень — синий, Девушка — фиолетовый)
             let shirtColor = (gender === 'male') ? "#2980b9" : "#9b59b6";
             if (cS > 0) shirtColor = customizationItems.shirt[cS].color;
             targetCtx.fillStyle = shirtColor; targetCtx.fillRect(pX + pSize*0.15, pY + pSize*0.5, pSize*0.7, pSize*0.5);
             
-            // Тон кожи
             targetCtx.fillStyle = (gender === 'male') ? "#f3c192" : "#f7d7b4";
             targetCtx.fillRect(pX + pSize*0.25, pY + pSize*0.15, pSize*0.5, pSize*0.4);
 
-            // Глаза
             targetCtx.fillStyle = "#2c3e50";
             targetCtx.fillRect(pX + pSize*0.33, pY + pSize*0.32, pSize*0.06, pSize*0.06);
             targetCtx.fillRect(pX + pSize*0.61, pY + pSize*0.32, pSize*0.06, pSize*0.06);
 
-            // Отрисовка купленных вещей
             if (cH > 0) {
                 targetCtx.fillStyle = customizationItems.hat[cH].color;
                 targetCtx.fillRect(pX + pSize*0.2, pY, pSize*0.6, pSize*0.15);
