@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мега-Лабиринт: 50 Уровней и Охранники</title>
+    <title>Мега-Лабиринт: Магазин Жизней</title>
     <style>
         :root {
             --bg-color: #0b0c10;
@@ -62,7 +62,7 @@
             padding: 12px; border-radius: 10px; font-size: 16px; font-weight: bold;
             cursor: pointer; text-transform: uppercase; transition: all 0.2s; text-align: center; text-decoration: none;
         }
-        .btn-ui:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        .btn-ui:disabled { border-color: #555; color: #555; cursor: not-allowed; opacity: 0.6; }
         .btn-ui:not(:disabled):active { background: var(--accent-neon); color: var(--bg-color); box-shadow: 0 0 15px var(--accent-neon); }
         
         .btn-continue { border-color: var(--success); color: var(--success); }
@@ -77,7 +77,6 @@
         #canvasContainer { position: relative; width: 360px; height: 360px; }
         #gameCanvas { border: 3px solid var(--accent-neon); background-color: #121212; width: 100%; height: 100%; }
         
-        /* Эффект темноты в туннеле */
         #tunnelVision {
             position: absolute; top: 3px; left: 3px; width: 360px; height: 360px;
             pointer-events: none; border-radius: 2px; display: none;
@@ -137,6 +136,7 @@
 </head>
 <body>
 
+    <!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ -->
     <div class="screen active" id="screenMenu">
         <h1>Лабиринт</h1>
         
@@ -166,13 +166,14 @@
         </div>
 
         <div class="menu-buttons">
-            <button class="btn-ui btn-continue" id="btnContinueGame" style="display: none;" onclick="playClick(); resumeGame()">Продолжить (Ур. <span id="continueLvlNum">1</span>)</button>
+            <button class="btn-ui btn-continue" id="btnContinueGame" onclick="playClick(); resumeGame()">Продолжить игру (Ур. <span id="continueLvlNum">1</span>)</button>
             <button class="btn-ui" id="btnStartGame" onclick="playClick(); startNewGame()">Новая игра</button>
             <button class="btn-ui" onclick="playClick(); switchScreen('screenShop')">👕 Гардероб и Магазин</button>
             <button class="btn-ui" onclick="playClick(); switchScreen('screenQuests')">Квесты</button>
         </div>
     </div>
 
+    <!-- ЭКРАН 2: ИГРОВОЙ ПРОЦЕСС -->
     <div class="screen" id="screenGame">
         <div class="stats-bar">
             <span id="levelIndicator" style="color: var(--accent-neon);">Ур: 1/50</span>
@@ -197,12 +198,17 @@
         <button class="btn-ui" style="margin-top: 10px; width: 100%; padding: 6px; font-size: 13px;" onclick="playClick(); exitToMenu()">В меню</button>
     </div>
 
+    <!-- ЭКРАН 3: МАГАЗИН И ГАРДЕРОБ -->
     <div class="screen" id="screenShop">
-        <h1>Гардероб</h1>
+        <h1>Гардероб и Магазин</h1>
         <div class="profile-panel" style="margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+            <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
                 <span>Баланс:</span>
                 <span style="color: var(--gem-color);" id="shopGems">💎 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>Жизни:</span>
+                <span style="color: var(--danger);" id="shopLives">❤️ 5/5</span>
             </div>
         </div>
 
@@ -211,13 +217,14 @@
         <button class="btn-ui" style="width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
+    <!-- ЭКРАН 4: КВЕСТЫ -->
     <div class="screen" id="screenQuests">
         <h1>Квесты</h1>
         <div class="quest-list">
             <div class="quest-card">
                 <h3>Подписка на Telegram</h3>
                 <p>Подпишись на наш игровой ТГ-канал.</p>
-                <div class="reward">+100 Алмазов в игре</div>
+                <div class="reward">+100 Алмазов in-game</div>
                 <div class="q-btns">
                     <a href="https://t.me/your_tg_channel" target="_blank" class="q-btn q-go" onclick="playClick(); enableCheckBtn(1)">Перейти</a>
                     <button class="q-btn q-check" id="qcheck1" disabled onclick="playClick(); addGems(100); showRewardModal('TG-GEMS-99')">Проверить</button>
@@ -227,6 +234,7 @@
         <button class="btn-ui" style="margin-top: 30px; width: 100%; padding: 10px;" onclick="playClick(); switchScreen('screenMenu')">Назад в меню</button>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО НАГРАДЫ -->
     <div class="modal" id="rewardModal">
         <div class="modal-content">
             <h2 id="modalTitle" style="color: var(--success); margin: 0;">Успех!</h2>
@@ -237,12 +245,12 @@
     </div>
 
     <script>
-        // --- ПРОФИЛЬ, РАСШИРЕННЫЕ СКИНЫ И ЖИЗНИ ---
+        // --- ПРОФИЛЬ И СОХРАНЕНИЯ ---
         let playerData = {
             gender: 'male', gems: 0, level: 1, xp: 0,
             currentSavedLevel: 1,
             lives: 5,
-            lastLifeLossTime: null, // Время последней потери жизни
+            lastLifeLossTime: null,
             equipped: { hat: 0, glasses: 0, shirt: 0 },
             unlocked: { hat: [0], glasses: [0], shirt: [0] }
         };
@@ -274,8 +282,7 @@
             ]
         };
 
-        // --- СИСТЕМА ВОССТАНОВЛЕНИЯ ЖИЗНЕЙ (3 МИНУТЫ) ---
-        const LIFE_REGEN_MS = 3 * 60 * 1000; // 3 минуты в миллисекундах
+        const LIFE_REGEN_MS = 3 * 60 * 1000;
 
         function checkLifeRegen() {
             if (playerData.lives >= 5) {
@@ -313,6 +320,8 @@
                 let parsed = JSON.parse(saved);
                 playerData = { ...playerData, ...parsed };
             }
+            if (playerData.lives === undefined) playerData.lives = 5;
+            if (!playerData.currentSavedLevel) playerData.currentSavedLevel = 1;
             updateProfileUI();
         }
 
@@ -325,6 +334,7 @@
             document.getElementById('menuAccLevel').innerText = `Уровень аккаунта: ${playerData.level}`;
             document.getElementById('menuGems').innerText = `💎 ${playerData.gems}`;
             document.getElementById('shopGems').innerText = `💎 ${playerData.gems}`;
+            document.getElementById('shopLives').innerText = `❤️ ${playerData.lives}/5`;
             document.getElementById('menuLives').innerText = `❤️ Жизни: ${playerData.lives}/5`;
             
             let xpNeeded = playerData.level * 100;
@@ -332,34 +342,84 @@
             document.getElementById('menuXpFill').style.width = `${fillPct}%`;
             document.getElementById('menuXpText').innerText = `${playerData.xp} / ${xpNeeded} XP`;
 
+            // Обновляем визуальное выделение кнопок выбора пола
+            if (playerData.gender === 'female') {
+                document.getElementById('skinFemaleBtn').classList.add('selected');
+                document.getElementById('skinMaleBtn').classList.remove('selected');
+            } else {
+                document.getElementById('skinMaleBtn').classList.add('selected');
+                document.getElementById('skinFemaleBtn').classList.remove('selected');
+            }
+
             const contBtn = document.getElementById('btnContinueGame');
             const startBtn = document.getElementById('btnStartGame');
             
-            if (playerData.lives <= 0) {
-                contBtn.setAttribute('disabled', 'true');
-                startBtn.setAttribute('disabled', 'true');
-            } else {
-                contBtn.removeAttribute('disabled');
-                startBtn.removeAttribute('disabled');
-            }
-
             if (playerData.currentSavedLevel > 1 && playerData.currentSavedLevel <= 50) {
                 contBtn.style.display = "block";
                 document.getElementById('continueLvlNum').innerText = playerData.currentSavedLevel;
                 startBtn.innerText = "Новая игра (Сброс)";
+                
+                if (playerData.lives <= 0) {
+                    contBtn.setAttribute('disabled', 'true');
+                } else {
+                    contBtn.removeAttribute('disabled');
+                }
             } else {
                 contBtn.style.display = "none";
                 startBtn.innerText = "Играть";
             }
+
+            if (playerData.lives <= 0) {
+                startBtn.setAttribute('disabled', 'true');
+            } else {
+                startBtn.removeAttribute('disabled');
+            }
+
             renderMenuPreviews();
         }
 
         function addGems(amount) { playerData.gems += amount; saveProfile(); }
         function setGender(g) { playerData.gender = g; playClick(); saveProfile(); }
 
-        // --- МАГАЗИН ---
+        // --- МАГАЗИН И ПОКУПКА ЖИЗНЕЙ ---
         function renderShop() {
             const container = document.getElementById('shopContainer'); container.innerHTML = "";
+            
+            let lifeSection = document.createElement('div');
+            lifeSection.className = 'shop-section';
+            lifeSection.innerHTML = `<h3>❤️ Аптечка и Жизни</h3>`;
+            let lifeGrid = document.createElement('div');
+            lifeGrid.className = 'shop-items';
+            
+            let buyLifeBtn = document.createElement('button');
+            buyLifeBtn.className = 'shop-item-btnUnlocked';
+            buyLifeBtn.style.cssText = "background:var(--card-bg); border:1px solid var(--danger); color:white; padding:8px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:bold; text-align:center; display:flex; flex-direction:column; justify-content:space-between; min-height:55px; width:100%; grid-column: span 3;";
+            
+            let isFull = playerData.lives >= 5;
+            buyLifeBtn.innerHTML = `<div>Купить 1 Жизнь (❤️)</div><div style="font-size:9px; color:#aaa;">${isFull ? 'Максимум жизней' : 'Восстановить сейчас'}</div><span class="price" style="color:var(--gem-color);">10 💎</span>`;
+            if (isFull) buyLifeBtn.style.opacity = "0.5";
+            
+            buyLifeBtn.onclick = () => {
+                if (playerData.lives >= 5) {
+                    alert("У вас уже максимальное количество жизней (5/5)!");
+                    return;
+                }
+                if (playerData.gems >= 10) {
+                    playerData.gems -= 10;
+                    playerData.lives++;
+                    if (playerData.lives >= 5) playerData.lastLifeLossTime = null;
+                    playKeySound();
+                    saveProfile();
+                    renderShop();
+                } else {
+                    playLockedSound();
+                    alert("Недостаточно алмазов! Требуется 10 💎");
+                }
+            };
+            lifeGrid.appendChild(buyLifeBtn);
+            lifeSection.appendChild(lifeGrid);
+            container.appendChild(lifeSection);
+
             const categories = [
                 { type: 'hat', title: '🧢 Головные уборы (250 💎)' },
                 { type: 'glasses', title: '👓 Очки и аксессуары (250 💎)' },
@@ -383,6 +443,7 @@
                 section.appendChild(itemsGrid); container.appendChild(section);
             });
         }
+
         function handleShopAction(type, id) {
             let isUnlocked = playerData.unlocked[type].includes(id);
             if (isUnlocked) { playerData.equipped[type] = id; playClick(); saveProfile(); renderShop(); }
@@ -405,13 +466,13 @@
         function playWinSound() { initAudio(); let now = audioCtx.currentTime, m = [523, 659, 783, 1046], d = [0.1, 0.1, 0.1, 0.3], ts=0; m.forEach((f, i) => { let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.setValueAtTime(f, now+ts); g.gain.setValueAtTime(0.1, now+ts); osc.start(now+ts); osc.stop(now+ts+d[i]); ts+=d[i]; }); }
         function playGameOverSound() { initAudio(); let osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime+0.4); g.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime+0.4); }
 
-        // --- ИНТЕРФЕЙС ЭКРАНОВ ---
+        // --- ЭКРАНЫ ---
         function switchScreen(screenId) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(screenId).classList.add('active'); if (screenId === 'screenShop') renderShop(); updateProfileUI(); }
         function enableCheckBtn(id) { setTimeout(() => { document.getElementById(`qcheck${id}`).removeAttribute('disabled'); }, 1000); }
         function showRewardModal(code, title = "Успех!", text = "Твой промокод:") { document.getElementById('modalTitle').innerText = title; document.getElementById('modalText').innerText = text; document.getElementById('codeBox').innerText = code; document.getElementById('rewardModal').style.display = 'flex'; }
         function closeModal() { document.getElementById('rewardModal').style.display = 'none'; if (currentLevel > 50) switchScreen('screenMenu'); }
 
-        // --- ГЕНЕРАТОР КАРТЫ НА 50 УРОВНЕЙ ---
+        // --- ДВИЖОК ИГРЫ И ГЕНЕРАТОР ---
         const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
         const statusText = document.getElementById('gameStatus'); const levelIndicator = document.getElementById('levelIndicator');
         const keyIndicator = document.getElementById('keyIndicator'); const timerIndicator = document.getElementById('timerIndicator');
@@ -420,22 +481,16 @@
         let currentLevel = 1; let map, player, hasKey, gameOver, tileSize, gridSize;
         let timeLeft = 0; let timerInterval = null; let loopInterval = null;
         let npcs = []; let isTunnelLevel = false;
+        let npcMoveCounter = 0;
 
         function generateProceduralLevel(lvlId) {
-            // Размер сетки растет с уровнем от 9x9 до 19x19
-            gridSize = 9 + Math.floor(lvlId / 5);
-            if (gridSize % 2 === 0) gridSize++; // Обязательно нечетное для генератора лабиринтов
+            gridSize = 9 + Math.floor(lvlId / 6);
+            if (gridSize % 2 === 0) gridSize++; 
             
-            let timeLimit = 30 + (lvlId * 2);
-            
-            // Заполнение стены
+            let timeLimit = 35 + (lvlId * 2);
             let grid = [];
-            for (let r = 0; r < gridSize; r++) {
-                grid[r] = new Array(gridSize).fill(1);
-            }
+            for (let r = 0; r < gridSize; r++) grid[r] = new Array(gridSize).fill(1);
 
-            // Алгоритм генерации проходов (Backtracking)
-            let cells = [];
             function carve(cx, cy) {
                 grid[cy][cx] = 0;
                 let dirs = [[0,-2],[0,2],[-2,0],[2,0]].sort(() => Math.random() - 0.5);
@@ -449,25 +504,21 @@
             }
             carve(1, 1);
 
-            // Размещаем Ключ и Дверь
-            grid[1][1] = 0; // Игрок всегда стартует здесь
-            grid[gridSize-2][gridSize-2] = 'D'; // Дверь в конце
+            grid[1][1] = 0; 
+            grid[gridSize-2][gridSize-2] = 'D'; 
             
-            // Ключ ищем в случайной пустой клетке подальше
             let placedK = false;
             while(!placedK) {
                 let kx = Math.floor(Math.random() * (gridSize-2)) + 1;
                 let ky = Math.floor(Math.random() * (gridSize-2)) + 1;
-                if (grid[ky][kx] === 0 && (kx > 3 || ky > 3)) {
+                if (grid[ky][kx] === 0 && (kx > 2 || ky > 2)) {
                     grid[ky][kx] = 'K';
                     placedK = true;
                 }
             }
-
             return { gridSize, timeLimit, playerStart: { x: 1, y: 1 }, map: grid };
         }
 
-        // --- ИНИЦИАЛИЗАЦИЯ ИГРЫ ---
         function startNewGame() {
             if (playerData.lives <= 0) return;
             if (playerData.currentSavedLevel > 1) {
@@ -478,7 +529,7 @@
         }
 
         function resumeGame() {
-            if (playerData.lives <= 0) { alert("У вас нет жизней! Дождитесь восстановления."); return; }
+            if (playerData.lives <= 0) { alert("У вас нет жизней! Купите их в магазине или подождите."); return; }
             currentLevel = playerData.currentSavedLevel || 1; switchScreen('screenGame');
             loadLevel(currentLevel);
         }
@@ -492,8 +543,8 @@
             player = { ...lvlData.playerStart };
             hasKey = false; gameOver = false; tileSize = 360 / gridSize;
             timeLeft = lvlData.timeLimit;
+            npcMoveCounter = 0;
 
-            // Проверяем, является ли уровень Туннелем (кратный 5)
             isTunnelLevel = (lvlId % 5 === 0);
             if (isTunnelLevel) {
                 tunnelDiv.style.display = "block";
@@ -511,26 +562,28 @@
             timerIndicator.innerText = `⏱ ${timeLeft}с`; timerIndicator.style.color = "white";
             keyIndicator.innerText = "Ключ: ❌"; keyIndicator.style.color = "var(--danger)";
 
-            // Спавн 5 NPC-Охранников
+            let maxNpcs = 5;
+            if (lvlId < 5) maxNpcs = 1;
+            else if (lvlId < 10) maxNpcs = 2;
+            else if (lvlId < 15) maxNpcs = 3;
+            else if (lvlId < 20) maxNpcs = 4;
+
             npcs = [];
             let spawnCount = 0;
-            while(spawnCount < 5) {
+            while(spawnCount < maxNpcs) {
                 let nx = Math.floor(Math.random() * (gridSize-2)) + 1;
                 let ny = Math.floor(Math.random() * (gridSize-2)) + 1;
-                // Спавним на свободных клетках подальше от старта игрока
                 if (map[ny][nx] === 0 && (nx > 3 || ny > 3)) {
                     npcs.push({
                         x: nx, y: ny,
-                        dx: Math.random() > 0.5 ? 1 : -1,
-                        dy: 0,
+                        dx: Math.random() > 0.5 ? 1 : -1, dy: 0,
                         dirTimer: 0,
-                        flashAngle: Math.random() * Math.PI * 2 // Куда направлен фонарик
+                        flashAngle: Math.random() * Math.PI * 2
                     });
                     spawnCount++;
                 }
             }
 
-            // Таймер игры
             timerInterval = setInterval(() => {
                 if (gameOver) return;
                 timeLeft--; timerIndicator.innerText = `⏱ ${timeLeft}с`;
@@ -542,36 +595,46 @@
                 }
             }, 1000);
 
-            // Игровой цикл для плавной отрисовки и движения NPC
-            loopInterval = setInterval(updateGameLoop, 150);
+            loopInterval = setInterval(updateGameLoop, 100);
         }
 
-        // --- ИГРОВОЙ ЦИКЛ (ДВИЖЕНИЕ NPC И ПРОВЕРКА КОЛЛИЗИЙ) ---
         function updateGameLoop() {
             if (gameOver) return;
             
-            // Движение NPC Охранников
-            npcs.forEach(npc => {
-                npc.dirTimer++;
-                // Каждые несколько шагов или при ударе об стену меняем случайное направление
-                let nextX = npc.x + npc.dx;
-                let nextY = npc.y + npc.dy;
+            npcMoveCounter++;
+            let moveDelay = 2; 
+            if (currentLevel < 5) moveDelay = 4;       
+            else if (currentLevel < 12) moveDelay = 3; 
+            else moveDelay = 2;                        
 
-                if (npc.dirTimer > 8 || map[nextY][nextX] === 1) {
-                    npc.dirTimer = 0;
-                    let possibleDirs = [[0,-1],[0,1],[-1,0],[1,0]];
-                    let validDirs = possibleDirs.filter(d => map[npc.y + d[1]][npc.x + d[0]] !== 1);
-                    if (validDirs.length > 0) {
-                        let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
-                        npc.dx = chosen[0]; npc.dy = chosen[1];
-                        // Плавное вращение луча фонарика
-                        npc.flashAngle = Math.atan2(npc.dy, npc.dx);
+            if (npcMoveCounter >= moveDelay) {
+                npcMoveCounter = 0;
+
+                npcs.forEach(npc => {
+                    npc.dirTimer++;
+                    let nextX = npc.x + npc.dx;
+                    let nextY = npc.y + npc.dy;
+
+                    if (npc.dirTimer > 6 || map[nextY][nextX] === 1) {
+                        npc.dirTimer = 0;
+                        let possibleDirs = [[0,-1],[0,1],[-1,0],[1,0]];
+                        let validDirs = possibleDirs.filter(d => map[npc.y + d[1]][npc.x + d[0]] !== 1);
+                        if (validDirs.length > 0) {
+                            let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+                            npc.dx = chosen[0]; npc.dy = chosen[1];
+                            npc.flashAngle = Math.atan2(npc.dy, npc.dx);
+                        }
+                    } else {
+                        npc.x = nextX; npc.y = nextY;
                     }
-                } else {
-                    npc.x = nextX; npc.y = nextY;
-                }
 
-                // Проверка на столкновение охранника с игроком
+                    if (npc.x === player.x && npc.y === player.y) {
+                        handlePlayerHit();
+                    }
+                });
+            }
+
+            npcs.forEach(npc => {
                 if (npc.x === player.x && npc.y === player.y) {
                     handlePlayerHit();
                 }
@@ -581,6 +644,7 @@
         }
 
         function handlePlayerHit() {
+            if (gameOver) return;
             gameOver = true;
             clearInterval(timerInterval); clearInterval(loopInterval);
             
@@ -597,20 +661,18 @@
                     loadLevel(currentLevel);
                 } else {
                     exitToMenu();
-                    alert("У вас закончились жизни! 1 жизнь восстанавливается 3 минуты.");
+                    alert("У вас закончились жизни! Купите новые за 10 алмазов в Магазине или подождите.");
                 }
-            }, 2000);
+            }, 1800);
         }
 
         function updateTunnelOverlay() {
             if (!isTunnelLevel) return;
-            // Центрируем темную виньетку на координатах игрока на экране
             let screenX = (player.x * tileSize) + (tileSize / 2);
             let screenY = (player.y * tileSize) + (tileSize / 2);
             tunnelDiv.style.background = `radial-gradient(circle 50px at ${screenX}px ${screenY}px, transparent 20%, rgba(0,0,0,0.97) 70%)`;
         }
 
-        // --- СЕТКА ОТРИСОВКИ ---
         function drawMap() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -628,12 +690,10 @@
                 }
             }
 
-            // Отрисовка NPC Охранников и лучей их фонариков
             npcs.forEach(npc => {
                 let nX = npc.x * tileSize + tileSize/2;
                 let nY = npc.y * tileSize + tileSize/2;
 
-                // Луч фонарика конусом
                 ctx.save();
                 let gradient = ctx.createRadialGradient(nX, nY, 2, nX, nY, tileSize * 2);
                 gradient.addColorStop(0, 'rgba(241, 196, 15, 0.4)');
@@ -646,7 +706,6 @@
                 ctx.fill();
                 ctx.restore();
 
-                // Иконка охранника👮
                 ctx.font = `${tileSize * 0.6}px Arial`; 
                 ctx.fillText("👮", npc.x * tileSize + tileSize*0.1, npc.y * tileSize + tileSize*0.75);
             });
@@ -656,30 +715,32 @@
 
         function drawPlayer(x, y, size) { ctx.save(); ctx.translate(x, y); renderCharacter(ctx, playerData.gender, size); ctx.restore(); }
         
-        function renderCharacter(targetCtx, gender, size, forcedCustom = null) {
+        function renderCharacter(targetCtx, gender, size) {
             targetCtx.clearRect(0,0,size,size);
             let pX = size * 0.15, pY = size * 0.15, pSize = size * 0.7;
-            let cH = forcedCustom ? forcedCustom.hat : playerData.equipped.hat;
-            let cG = forcedCustom ? forcedCustom.glasses : playerData.equipped.glasses;
-            let cS = forcedCustom ? forcedCustom.shirt : playerData.equipped.shirt;
+            let cH = playerData.equipped.hat;
+            let cG = playerData.equipped.glasses;
+            let cS = playerData.equipped.shirt;
 
+            // Настройка цвета одежды по умолчанию (Парень — синий, Девушка — фиолетовый)
             let shirtColor = (gender === 'male') ? "#2980b9" : "#9b59b6";
             if (cS > 0) shirtColor = customizationItems.shirt[cS].color;
             targetCtx.fillStyle = shirtColor; targetCtx.fillRect(pX + pSize*0.15, pY + pSize*0.5, pSize*0.7, pSize*0.5);
             
+            // Тон кожи
             targetCtx.fillStyle = (gender === 'male') ? "#f3c192" : "#f7d7b4";
             targetCtx.fillRect(pX + pSize*0.25, pY + pSize*0.15, pSize*0.5, pSize*0.4);
 
+            // Глаза
             targetCtx.fillStyle = "#2c3e50";
             targetCtx.fillRect(pX + pSize*0.33, pY + pSize*0.32, pSize*0.06, pSize*0.06);
             targetCtx.fillRect(pX + pSize*0.61, pY + pSize*0.32, pSize*0.06, pSize*0.06);
 
-            // Спец-шапки
+            // Отрисовка купленных вещей
             if (cH > 0) {
                 targetCtx.fillStyle = customizationItems.hat[cH].color;
                 targetCtx.fillRect(pX + pSize*0.2, pY, pSize*0.6, pSize*0.15);
             }
-            // Спец-очки
             if (cG > 0 && cG !== 3) {
                 targetCtx.fillStyle = customizationItems.glasses[cG].color;
                 targetCtx.fillRect(pX + pSize*0.22, pY + pSize*0.26, pSize*0.56, pSize*0.1);
